@@ -1,0 +1,31 @@
+menu "Wi-Fi credentials"
+
+config WIFI_CONNECT_SSID
+    string "Wi-Fi SSID"
+    default "your_ssid"
+    help
+      Your Wi-Fi network's SSID.
+
+config WIFI_CONNECT_PASSWORD
+    string "Wi-Fi Password"
+    default "your_password"
+    help
+      Your Wi-Fi network's password.
+
+endmenu
+
+menu "OpenAI configuration"
+
+config OPENAI_REALTIMEAPI
+    string "OpenAI Realtime API URL"
+    default "https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2025-06-03"
+    help
+      The REST endpoint to POST signaling-type payloads (e.g. SDP offers) to OpenAI.
+
+config OPENAI_API_KEY
+    string "OpenAI API Key"
+    default "sk-"
+    help
+      Your OpenAI secret key for authorization.
+
+endmenu
