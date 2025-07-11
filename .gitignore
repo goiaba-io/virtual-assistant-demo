@@ -18,3 +18,4 @@ CMakeLists.txt.user
 pip-selfcheck.json
 
 managed_components/
+dependencies.lock
