@@ -1,4 +1,4 @@
-idf_component_register(SRCS "main.c" "mic.c" "speaker.c" "wifi.c" "audio.c" "webrtc.c" "http.c"
+idf_component_register(SRCS "main.c" "mic.c" "speaker.c" "wifi.c" "audio.c" "webrtc.c" "http.c" "filters.c"
     INCLUDE_DIRS "." "includes"
     REQUIRES libpeer esp-libopus driver libpeer esp_wifi nvs_flash esp_http_client
 )

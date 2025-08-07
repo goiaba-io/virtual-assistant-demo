@@ -9,6 +9,7 @@
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_netif.h"
+#include "filters.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "http.h"
@@ -23,7 +24,7 @@ static const char *TAG = "webrtc";
 
 #define GREETING_JSON                                                 \
     "{\"type\": \"response.create\", \"response\": {\"modalities\": " \
-    "[\"audio\", \"text\"], \"instructions\": \"Say '" GREETING "'\"}}"
+    "[\"audio\", \"text\"], \"instructions\": \"" GREETING "\"}}"
 
 #define INSTRUCTION_JSON                                              \
     "{\"type\": \"session.update\", \"session\": {\"instructions\": " \
@@ -93,21 +94,28 @@ static int send_audio(const uint8_t *buf, size_t size) {
 
 static void send_audio_task(void *arg) {
     ESP_LOGI(TAG, "Audio send task started");
-    int16_t read_buffer[READ_BUFFER_SIZE_BYTES];
-    const float mic_gain = 2.5f;
+
+    int32_t raw_buffer[READ_BUFFER_SAMPLES];
+    int16_t filtered_buffer[FRAME_SAMPLES];
+    const float mic_gain = 0.025f;
+
     init_audio_encoder();
+    reset_voice_filters();
 
     for (;;) {
-        size_t samples = mic_read(read_buffer, READ_BUFFER_SAMPLES);
-        if (samples < FRAME_SAMPLES) {
-            memset(read_buffer + samples,
-                0,
-                (FRAME_SAMPLES - samples) * sizeof(int16_t));
+        size_t samples = mic_read(raw_buffer, READ_BUFFER_SAMPLES);
+        noise_gate_filter(raw_buffer, samples);
+        for (size_t i = 0; i < samples; i++) {
+            int32_t sample = raw_buffer[i];
+            sample = dc_block_filter(sample);
+            sample = high_pass_filter(sample);
+            filtered_buffer[i] =
+                limit_amplitude((int32_t)(sample * mic_gain) >> 11);
         }
-        // apply_digital_gain(read_buffer, FRAME_SAMPLES, mic_gain);
-        audio_encode(read_buffer, FRAME_SAMPLES, send_audio);
 
-        vTaskDelay(pdMS_TO_TICKS(25));
+        audio_encode(filtered_buffer, samples, send_audio);
+
+        vTaskDelay(pdMS_TO_TICKS(15));
     }
 }
 
@@ -124,6 +132,9 @@ static void on_icecandidate_task(char *description, void *user_data) {
 void webrtc_init(const char *ssid, const char *password) {
     PeerConfiguration config = {
         .ice_servers = {{.urls = "stun:stun.l.google.com:19302"}},
+        // .ice_servers = {{.urls = "turn:numb.viagenie.ca:3478?transport=udp",
+        //     .username = "webrtc@live.com",
+        //     .credential = "muazkh"}},
         .datachannel = DATA_CHANNEL_STRING,
         .audio_codec = CODEC_OPUS,
         .video_codec = CODEC_NONE,

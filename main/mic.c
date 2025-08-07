@@ -5,13 +5,14 @@
 #include "utils.h"
 
 #define I2S_MIC_PORT I2S_NUM_0
-
 static const char *TAG = "mic";
+
 void mic_begin(void) {
     esp_err_t err;
+
     i2s_config_t cfg = {.mode = I2S_MODE_MASTER | I2S_MODE_RX,
         .sample_rate = SAMPLE_RATE,
-        .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT,
+        .bits_per_sample = I2S_BITS_PER_SAMPLE_32BIT,
         .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
         .communication_format = I2S_COMM_FORMAT_I2S,
         .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
@@ -36,22 +37,16 @@ void mic_begin(void) {
     }
 }
 
-size_t mic_record(int16_t *dst, size_t len_samples) {
+size_t mic_record(int32_t *dst, size_t len_samples) {
     size_t bytes = 0;
     i2s_read(I2S_MIC_PORT,
         dst,
-        len_samples * sizeof(int16_t),
+        len_samples * sizeof(int32_t),
         &bytes,
         portMAX_DELAY);
-    return bytes >> 1;
+    return bytes / sizeof(int32_t);
 }
 
-size_t mic_read(int16_t *dst, size_t len_samples) {
-    size_t bytes = 0;
-    i2s_read(I2S_MIC_PORT,
-        dst,
-        len_samples * sizeof(int16_t),
-        &bytes,
-        portMAX_DELAY);
-    return bytes >> 1;
+size_t mic_read(int32_t *dst, size_t len_samples) {
+    return mic_record(dst, len_samples);
 }

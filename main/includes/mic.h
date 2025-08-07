@@ -7,8 +7,8 @@ extern "C" {
 #endif
 
 void mic_begin(void);
-size_t mic_record(int16_t *dst, size_t len_samples);
-size_t mic_read(int16_t *dst, size_t len_samples);
+size_t mic_record(int32_t *dst, size_t len_samples);
+size_t mic_read(int32_t *dst, size_t len_samples);
 
 #ifdef __cplusplus
 }

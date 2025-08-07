@@ -48,13 +48,8 @@ esp_err_t openai_http_event_handler(esp_http_client_event_t *evt) {
             if (output_len == 0 && evt->user_data) {
                 memset(evt->user_data, 0, MAX_HTTP_OUTPUT_BUFFER);
             }
-
-            // If user_data buffer is configured, copy the response into the
-            // buffer
             int copy_len = 0;
             if (evt->user_data) {
-                // The last byte in evt->user_data is kept for the NULL
-                // character in case of out-of-bound access.
                 copy_len =
                     MIN(evt->data_len, (MAX_HTTP_OUTPUT_BUFFER - output_len));
                 if (copy_len) {
