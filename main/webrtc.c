@@ -132,9 +132,6 @@ static void on_icecandidate_task(char *description, void *user_data) {
 void webrtc_init(const char *ssid, const char *password) {
     PeerConfiguration config = {
         .ice_servers = {{.urls = "stun:stun.l.google.com:19302"}},
-        // .ice_servers = {{.urls = "turn:numb.viagenie.ca:3478?transport=udp",
-        //     .username = "webrtc@live.com",
-        //     .credential = "muazkh"}},
         .datachannel = DATA_CHANNEL_STRING,
         .audio_codec = CODEC_OPUS,
         .video_codec = CODEC_NONE,

@@ -10,6 +10,7 @@
 
 void app_main(void) {
     wifi_init(CONFIG_WIFI_CONNECT_SSID, CONFIG_WIFI_CONNECT_PASSWORD);
+    vTaskDelay(pdMS_TO_TICKS(5000));
     mic_begin();
     spk_begin();
     init_audio_decoder();

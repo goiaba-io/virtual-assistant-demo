@@ -22,6 +22,6 @@
     da melhor forma possível, sem inventar informações ou fugir do que for      \
     pedido."
 
-#define GREETING \
-    "Em Português do Brasil diga: Oi! Eu sou a Goiaba, sua assistente virtual. Agora são [data e hora atual] \
-    e o clima em São Paulo está [descrição do clima]. Tô pronta pra te ajudar no que precisar!"
+#define GREETING                                                        \
+    "Em Português do Brasil diga: Oi! Eu sou a Goiaba, sua assistente " \
+    "virtual. Tô pronta pra te ajudar no que precisar!"

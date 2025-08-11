@@ -18,7 +18,7 @@ menu "OpenAI configuration"
 
 config OPENAI_REALTIMEAPI
     string "OpenAI Realtime API URL"
-    default "https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2025-06-03"
+    default "https://api.openai.com/v1/realtime?model=gpt-4o-mini-realtime-preview"
     help
       The REST endpoint to POST signaling-type payloads (e.g. SDP offers) to OpenAI.
 
@@ -27,5 +27,17 @@ config OPENAI_API_KEY
     default "sk-"
     help
       Your OpenAI secret key for authorization.
+
+config OPENAI_MODEL
+    string "OpenAI Model"
+    default "gpt-4o-mini-realtime-preview"
+    help
+      The OpenAI model to use for the virtual assistant.
+
+config OPENAI_VOICE
+    string "OpenAI Voice"
+    default "coral"
+    help
+      The voice to use for text-to-speech synthesis.
 
 endmenu
