@@ -14,6 +14,7 @@
 
 RgbLed status_led; 
 void led_update_task(void *pvParameters);
+void button_init(void);
 
 void app_main(void) {
     rgb_led_init(&status_led, NEOPIXEL_PIN);
@@ -21,6 +22,8 @@ void app_main(void) {
     xTaskCreate(led_update_task, "led_update_task", 2048, NULL, 5, NULL);
     wifi_init(CONFIG_WIFI_CONNECT_SSID, CONFIG_WIFI_CONNECT_PASSWORD);
     vTaskDelay(pdMS_TO_TICKS(5000));
+    rgb_led_init(&status_led, NEOPIXEL_PIN);
+    button_init();
     mic_begin();
     spk_begin();
     init_audio_decoder();

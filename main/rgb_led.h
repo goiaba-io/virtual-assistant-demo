@@ -46,6 +46,7 @@ void led_status_ready(RgbLed* led);
 void led_status_thinking(RgbLed* led);
 void led_status_responding(RgbLed* led);
 void led_status_server_error(RgbLed* led);
+void led_status_muted(RgbLed* led);
 
 
 #ifdef __cplusplus

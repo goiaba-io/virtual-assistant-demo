@@ -20,9 +20,16 @@
 #include "rgb_led.h" 
 #include "freertos/FreeRTOS.h"
 #include "freertos/timers.h" 
+#include "driver/gpio.h"
 
 extern RgbLed status_led;
 static TimerHandle_t inactivity_timer = NULL; // Variável para o nosso timer
+
+//------------ Buton -----------------
+#define MUTE_BUTTON_GPIO GPIO_NUM_39
+static volatile bool g_is_muted = false;
+static bool g_last_mute_state = false;
+static bool g_is_thinking = false; 
 
 static const char *TAG = "webrtc";
 #define READ_BUFFER_SAMPLES FRAME_SAMPLES
@@ -125,23 +132,70 @@ static void send_audio_task(void *arg) {
     int32_t raw_buffer[READ_BUFFER_SAMPLES];
     int16_t filtered_buffer[FRAME_SAMPLES];
     const float mic_gain = 0.025f;
+    
+    const int32_t SPEECH_THRESHOLD = 50000;
 
     init_audio_encoder();
     reset_voice_filters();
 
     for (;;) {
-        size_t samples = mic_read(raw_buffer, READ_BUFFER_SAMPLES);
-        noise_gate_filter(raw_buffer, samples);
-        for (size_t i = 0; i < samples; i++) {
-            int32_t sample = raw_buffer[i];
-            sample = dc_block_filter(sample);
-            sample = high_pass_filter(sample);
-            filtered_buffer[i] =
-                limit_amplitude((int32_t)(sample * mic_gain) >> 11);
+        // Bloco de debug para o botão (continua igual)
+        if (g_is_muted != g_last_mute_state) {
+            if (g_is_muted) {
+                ESP_LOGW(TAG, "Botão Pressionado: Microfone MUTADO");
+            } else {
+                ESP_LOGI(TAG, "Botão Pressionado: Microfone DESMUTADO");
+            }
+            g_last_mute_state = g_is_muted;
         }
 
-        audio_encode(filtered_buffer, samples, send_audio);
+        // --- LÓGICA DE MUDO CORRIGIDA E MAIS ROBUSTA ---
+        if (g_is_muted) {
+            // Se estiver mutado:
+            // 1. Define o LED para o estado "mutado"
+            led_status_muted(&status_led);
 
+            // 2. Prepara um buffer contendo apenas silêncio (zeros)
+            int16_t silent_buffer[FRAME_SAMPLES] = {0};
+            
+            // 3. Codifica e envia o buffer de silêncio. Isso mantém a conexão de áudio ativa
+            //    mas garante que nenhum som do microfone seja transmitido.
+            audio_encode(silent_buffer, FRAME_SAMPLES, send_audio);
+
+        } else {
+            // Se NÃO estiver mutado, executa a lógica normal de captura de áudio:
+            size_t samples = mic_read(raw_buffer, READ_BUFFER_SAMPLES);
+            noise_gate_filter(raw_buffer, samples);
+            
+            int32_t energy = 0;
+            for (size_t i = 0; i < samples; i++) {
+                energy += abs(raw_buffer[i]);
+            }
+
+            if (energy > SPEECH_THRESHOLD) {
+                if (!g_is_thinking) {
+                    g_is_thinking = true;
+                    led_status_thinking(&status_led);
+                }
+            } else {
+                if (g_is_thinking) {
+                    g_is_thinking = false;
+                    led_status_ready(&status_led);
+                }
+            }
+
+            for (size_t i = 0; i < samples; i++) {
+                int32_t sample = raw_buffer[i];
+                sample = dc_block_filter(sample);
+                sample = high_pass_filter(sample);
+                filtered_buffer[i] =
+                    limit_amplitude((int32_t)(sample * mic_gain) >> 11);
+            }
+
+            audio_encode(filtered_buffer, samples, send_audio);
+        }
+
+        // O delay é executado em ambos os casos para manter o ritmo da tarefa
         vTaskDelay(pdMS_TO_TICKS(15));
     }
 }
@@ -226,3 +280,29 @@ void webrtc_register_send_audio_task(void) {
         led_status_server_error(&status_led);
     }
 }
+//------------- Buton -------------
+
+void IRAM_ATTR mute_button_isr_handler(void* arg) {
+    // Apenas inverte o estado da flag. Nada mais.
+    g_is_muted = !g_is_muted;
+}
+
+void button_init(void) {
+    gpio_config_t io_conf = {
+        .intr_type = GPIO_INTR_NEGEDGE, // Gatilho na borda de descida (pressionar)
+        .pin_bit_mask = (1ULL << MUTE_BUTTON_GPIO),
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE, // Habilita resistor de pull-up interno
+        .pull_down_en = GPIO_PULLDOWN_DISABLE
+    };
+    gpio_config(&io_conf);
+
+    // Instala o serviço de ISR de GPIO
+    gpio_install_isr_service(0);
+    // Adiciona nossa função de handler para o pino específico
+    gpio_isr_handler_add(MUTE_BUTTON_GPIO, mute_button_isr_handler, NULL);
+
+    ESP_LOGI(TAG, "Botão de Mudo configurado no GPIO %d", MUTE_BUTTON_GPIO);
+}
+
+//--------------------------

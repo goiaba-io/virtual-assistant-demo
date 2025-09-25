@@ -155,3 +155,8 @@ void led_status_responding(RgbLed* led) {
 }
 
 } // Fim do extern "C"
+
+void led_status_muted(RgbLed* led) {
+    // Vermelho, sólido para indicar que está mutado
+    rgb_led_onled(led, "on", "red", 0, 0);
+}
