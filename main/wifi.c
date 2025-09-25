@@ -7,7 +7,9 @@
 #include "esp_netif.h"
 #include "esp_wifi.h"
 #include "nvs_flash.h"
+#include "rgb_led.h" 
 
+extern RgbLed status_led;
 static const char* TAG = "wifi";
 
 static void wifi_event_handler(void* arg, esp_event_base_t event_base,
@@ -70,7 +72,9 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
     int32_t event_id, void* event_data) {
     if (event_id == WIFI_EVENT_STA_START) {
         esp_wifi_connect();
+        led_status_initializing(&status_led);
     } else if (event_id == WIFI_EVENT_STA_DISCONNECTED) {
+        led_status_wifi_error(&status_led);
         ESP_LOGW(TAG, "Disconnected. Reconnecting...");
         esp_wifi_connect();
     }

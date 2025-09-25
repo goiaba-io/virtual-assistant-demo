@@ -1,8 +1,9 @@
 dependencies:
+  idf: ">=5.0"
   sepfy/libpeer:
-    path: ../../components/libpeer
-    version: ">=0.0.2"
+    version: "0.0.3"
+    override_path: ../../components/libpeer
   XasWorks/esp-libopus:
-    path: ../../components/esp-libopus
-  idf:
-    version: ">=4.1.0"
+    version: "*"
+    override_path: ../../components/esp-libopus
+  espressif/led_strip: "*"
