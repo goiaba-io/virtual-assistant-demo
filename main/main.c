@@ -10,9 +10,9 @@
 #include "rgb_led.h"
 #include "driver/gpio.h" 
 
-#define NEOPIXEL_PIN GPIO_NUM_48 // Pino do LED RGB no ESP32-S3
+#define NEOPIXEL_PIN GPIO_NUM_48 // Pin  LED RGB ESP32-S3
 
-RgbLed status_led; // Cria a nossa struct de controle do LED
+RgbLed status_led; 
 void led_update_task(void *pvParameters);
 
 void app_main(void) {
@@ -33,7 +33,6 @@ void app_main(void) {
 void led_update_task(void *pvParameters) {
     while (1) {
         rgb_led_update(&status_led);
-        // Pequeno delay para não sobrecarregar a CPU
         vTaskDelay(pdMS_TO_TICKS(10)); 
     }
 }

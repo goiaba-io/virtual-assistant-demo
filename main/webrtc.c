@@ -66,22 +66,16 @@ static void oniceconnectionstatechange(PeerConnectionState state,
 
 static void onmessage(char *msg, size_t len, void *userdata, uint16_t sid) {
     ESP_LOGI(TAG, "Datachannel message: %.*s", len, msg);
-
-    // Reinicia o timer de inatividade toda vez que uma mensagem chega
     if (inactivity_timer != NULL) {
         xTimerReset(inactivity_timer, 0);
     }
-
     if (strstr(msg, "\"type\":\"input_audio") != NULL) {
         led_status_thinking(&status_led);
-    
     } else if (strstr(msg, "\"type\":\"output_audio_buffer.stopped\"") != NULL) {
         led_status_ready(&status_led);
-        // Quando a conversa para, não precisamos mais do timer de inatividade
         if (inactivity_timer != NULL) {
             xTimerStop(inactivity_timer, 0);
         }
-
     } else if (strstr(msg, "\"type\":\"output_audio") != NULL) {
         led_status_responding(&status_led);
     }
