@@ -37,6 +37,10 @@ All of this runs on an **ESP32-S3 DevKitC-1**. It starts automatically when the 
 | Enable (SD)  | —             | –       | SD/EN→3V3              | Amp always on                       |
 | Gain         | —             | –       | GAIN→3V3 / GND / float | 12 dB / 6 dB / 9 dB                 |
 | LED          | **38**        | –       | –                      | Built‑in LED                        |
+| Button 1     | **39**	              –	–	                        | User Input 1
+| Button 2	   | **40**	              –	–	                        | User Input 2
+| Button 3	   | **41**	              –	–	                        | User Input 3
+| Button 4	   | **42**	              –	–	                        | User Input 4
 
 ### Key Libraries / Headers
 
