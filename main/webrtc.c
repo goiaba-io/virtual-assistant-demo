@@ -21,15 +21,23 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/timers.h" 
 #include "driver/gpio.h"
+#include "webrtc.h"
+#include "esp_timer.h" // Adicionado para debounce
 
 extern RgbLed status_led;
-static TimerHandle_t inactivity_timer = NULL; // Variável para o nosso timer
 
-//------------ Buton -----------------
+//------------ Variáveis de Controle -----------------
+static TimerHandle_t inactivity_timer = NULL; 
+
 #define MUTE_BUTTON_GPIO GPIO_NUM_39
 static volatile bool g_is_muted = false;
-static bool g_last_mute_state = false;
+static bool g_last_mute_state = false; 
 static bool g_is_thinking = false; 
+
+// --- NOVAS VARIÁVEIS PARA DEBOUNCE ---
+static volatile int64_t last_interrupt_time = 0;
+#define DEBOUNCE_DELAY_MS 300
+// ------------------------------------
 
 static const char *TAG = "webrtc";
 #define READ_BUFFER_SAMPLES FRAME_SAMPLES
@@ -48,6 +56,9 @@ StaticTask_t task_buffer;
 PeerConnection *g_pc = NULL;
 PeerConnectionState eState = PEER_CONNECTION_CLOSED;
 int gDataChannelOpened = 0;
+
+// ... (as funções get_timestamp, inactivity_timer_callback, oniceconnectionstatechange, onmessage, onopen, connection_task, send_audio continuam iguais) ...
+// (O código foi omitido para focar nas mudanças, mas ele continua o mesmo da sua versão)
 
 int64_t get_timestamp(void) {
     struct timeval tv;
@@ -132,38 +143,33 @@ static void send_audio_task(void *arg) {
     int32_t raw_buffer[READ_BUFFER_SAMPLES];
     int16_t filtered_buffer[FRAME_SAMPLES];
     const float mic_gain = 0.025f;
-    
     const int32_t SPEECH_THRESHOLD = 50000;
 
     init_audio_encoder();
     reset_voice_filters();
 
     for (;;) {
-        // Bloco de debug para o botão (continua igual)
+        // --- LÓGICA DE ESTADO E DEBUG MELHORADA ---
         if (g_is_muted != g_last_mute_state) {
             if (g_is_muted) {
                 ESP_LOGW(TAG, "Botão Pressionado: Microfone MUTADO");
+                // A lógica principal abaixo vai cuidar do LED
             } else {
                 ESP_LOGI(TAG, "Botão Pressionado: Microfone DESMUTADO");
+                // Força o estado para "pronto" ao desmutar para um feedback claro
+                led_status_ready(&status_led);
+                // Reseta a flag de "pensando" para garantir um começo limpo
+                g_is_thinking = false; 
             }
             g_last_mute_state = g_is_muted;
         }
+        // ----------------------------------------
 
-        // --- LÓGICA DE MUDO CORRIGIDA E MAIS ROBUSTA ---
         if (g_is_muted) {
-            // Se estiver mutado:
-            // 1. Define o LED para o estado "mutado"
             led_status_muted(&status_led);
-
-            // 2. Prepara um buffer contendo apenas silêncio (zeros)
             int16_t silent_buffer[FRAME_SAMPLES] = {0};
-            
-            // 3. Codifica e envia o buffer de silêncio. Isso mantém a conexão de áudio ativa
-            //    mas garante que nenhum som do microfone seja transmitido.
             audio_encode(silent_buffer, FRAME_SAMPLES, send_audio);
-
         } else {
-            // Se NÃO estiver mutado, executa a lógica normal de captura de áudio:
             size_t samples = mic_read(raw_buffer, READ_BUFFER_SAMPLES);
             noise_gate_filter(raw_buffer, samples);
             
@@ -191,14 +197,14 @@ static void send_audio_task(void *arg) {
                 filtered_buffer[i] =
                     limit_amplitude((int32_t)(sample * mic_gain) >> 11);
             }
-
             audio_encode(filtered_buffer, samples, send_audio);
         }
-
-        // O delay é executado em ambos os casos para manter o ritmo da tarefa
         vTaskDelay(pdMS_TO_TICKS(15));
     }
 }
+
+// ... (on_audio_track_cb, on_icecandidate_task, webrtc_init, etc. continuam iguais) ...
+// (O código foi omitido para focar nas mudanças, mas ele continua o mesmo da sua versão)
 
 void on_audio_track_cb(uint8_t *data, size_t size, void *userdata) {
     audio_decode(data, size, spk_write);
@@ -248,7 +254,6 @@ void webrtc_init(const char *ssid, const char *password) {
     peer_connection_onicecandidate(g_pc, on_icecandidate_task);
     peer_connection_ondatachannel(g_pc, onmessage, onopen, NULL);
 
-    // vTaskDelay(pdMS_TO_TICKS(5000));
     led_status_ready(&status_led);    
     ESP_LOGI(TAG, "Peer manager initialized");
 }
@@ -280,29 +285,32 @@ void webrtc_register_send_audio_task(void) {
         led_status_server_error(&status_led);
     }
 }
-//------------- Buton -------------
 
+// --- FUNÇÕES DO BOTÃO ATUALIZADAS ---
 void IRAM_ATTR mute_button_isr_handler(void* arg) {
-    // Apenas inverte o estado da flag. Nada mais.
-    g_is_muted = !g_is_muted;
+    int64_t current_time = esp_timer_get_time();
+    // Verifica se tempo suficiente passou desde a última interrupção válida
+    if ((current_time - last_interrupt_time) > (DEBOUNCE_DELAY_MS * 1000)) {
+        // Se passou, é um clique válido. Inverte o estado.
+        g_is_muted = !g_is_muted;
+        // Atualiza o tempo do último clique válido.
+        last_interrupt_time = current_time;
+    }
+    // Se não passou tempo suficiente, ignora (é um bounce).
 }
 
 void button_init(void) {
     gpio_config_t io_conf = {
-        .intr_type = GPIO_INTR_NEGEDGE, // Gatilho na borda de descida (pressionar)
+        .intr_type = GPIO_INTR_NEGEDGE,
         .pin_bit_mask = (1ULL << MUTE_BUTTON_GPIO),
         .mode = GPIO_MODE_INPUT,
-        .pull_up_en = GPIO_PULLUP_ENABLE, // Habilita resistor de pull-up interno
+        .pull_up_en = GPIO_PULLUP_ENABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE
     };
     gpio_config(&io_conf);
 
-    // Instala o serviço de ISR de GPIO
     gpio_install_isr_service(0);
-    // Adiciona nossa função de handler para o pino específico
     gpio_isr_handler_add(MUTE_BUTTON_GPIO, mute_button_isr_handler, NULL);
 
-    ESP_LOGI(TAG, "Botão de Mudo configurado no GPIO %d", MUTE_BUTTON_GPIO);
+    ESP_LOGI(TAG, "Botão de Mudo configurado no GPIO %d com debounce de %dms", MUTE_BUTTON_GPIO, DEBOUNCE_DELAY_MS);
 }
-
-//--------------------------
