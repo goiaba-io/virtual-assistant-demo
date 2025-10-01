@@ -1,18 +1,13 @@
 # Changelog
 
-Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
-
-O formato é baseado em [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
-
 ## [1.1.0] - 2025-09-25
 
-Esta versão introduz um sistema de feedback visual usando um LED RGB, melhorando significativamente a interatividade e a capacidade de depuração do assistente virtual.
+This version introduces a visual feedback system using an RGB LED, significantly improving the interactivity and debuggability of the virtual assistant.
 
-### Added (Adicionado)
-- **Indicador de Status com LED RGB:** Integrado suporte a um LED WS2812 (NeoPixel) para fornecer feedback visual sobre o estado do assistente virtual.
-- **Módulo de Controle `rgb_led`:** Criado um novo módulo de abstração (`rgb_led.h`, `rgb_led.cpp`) que atua como um wrapper em C para o componente `led_strip` do ESP-IDF, facilitando o controle do LED.
-- **Novos Estados Visuais:** Definidos múltiplos estados para o LED, incluindo:
-    - `Pronto` (Verde sólido): O assistente está ocioso e pronto para receber comandos.
-    - `Pensando` (Amarelo ou Azul piscando lentamente): O assistente está processando o áudio captado pelo microfone.
-    - `Respondendo` (Azul piscando rapidamente): O assistente está falando e reproduzindo áudio.
-    - `Erro` (Vermelho piscando): Indica falhas de conexão ou erros críticos.
+### Added
+- **RGB LED Status Indicator:** Integrated support for a WS2812 LED (NeoPixel) to provide visual feedback on the virtual assistant's status.
+- **`rgb_led` Control Module:** Created a new abstraction module (`rgb_led.h`, `rgb_led.cpp`) that acts as a C wrapper for the ESP-IDF `led_strip` component, facilitating LED control. - **New Visual States:** Multiple states have been defined for the LED, including:
+- `Ready` (Solid Green): The assistant is idle and ready to receive commands.
+- `Thinking` (Slowly blinking Yellow or Blue): The assistant is processing audio captured by the microphone.
+- `Responding` (Fast blinking Blue): The assistant is speaking and playing audio.
+- `Error` (Blinking Red): Indicates connection failures or critical errors.
