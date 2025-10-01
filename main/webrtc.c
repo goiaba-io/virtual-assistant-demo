@@ -17,6 +17,12 @@
 #include "peer.h"
 #include "speaker.h"
 #include "utils.h"
+#include "rgb_led.h" 
+#include "freertos/FreeRTOS.h"
+#include "freertos/timers.h" 
+
+extern RgbLed status_led;
+static TimerHandle_t inactivity_timer = NULL; // Variável para o nosso timer
 
 static const char *TAG = "webrtc";
 #define READ_BUFFER_SAMPLES FRAME_SAMPLES
@@ -30,6 +36,7 @@ static const char *TAG = "webrtc";
     "{\"type\": \"session.update\", \"session\": {\"instructions\": " \
     "\"" INSTRUCTIONS "\"}}"
 
+
 StaticTask_t task_buffer;
 PeerConnection *g_pc = NULL;
 PeerConnectionState eState = PEER_CONNECTION_CLOSED;
@@ -40,6 +47,13 @@ int64_t get_timestamp(void) {
     gettimeofday(&tv, NULL);
     return (tv.tv_sec * 1000LL + tv.tv_usec / 1000LL);
 }
+
+
+static void inactivity_timer_callback(TimerHandle_t xTimer) {
+    ESP_LOGI(TAG, "Inatividade detectada. Voltando ao estado 'Pronto'.");
+    led_status_ready(&status_led);
+}
+
 
 static void oniceconnectionstatechange(PeerConnectionState state,
     void *user_data) {
@@ -52,6 +66,19 @@ static void oniceconnectionstatechange(PeerConnectionState state,
 
 static void onmessage(char *msg, size_t len, void *userdata, uint16_t sid) {
     ESP_LOGI(TAG, "Datachannel message: %.*s", len, msg);
+    if (inactivity_timer != NULL) {
+        xTimerReset(inactivity_timer, 0);
+    }
+    if (strstr(msg, "\"type\":\"input_audio") != NULL) {
+        led_status_thinking(&status_led);
+    } else if (strstr(msg, "\"type\":\"output_audio_buffer.stopped\"") != NULL) {
+        led_status_ready(&status_led);
+        if (inactivity_timer != NULL) {
+            xTimerStop(inactivity_timer, 0);
+        }
+    } else if (strstr(msg, "\"type\":\"output_audio") != NULL) {
+        led_status_responding(&status_led);
+    }
 }
 
 static void onopen(void *userdata) {
@@ -145,9 +172,20 @@ void webrtc_init(const char *ssid, const char *password) {
         config.ice_servers[0].urls);
 
     peer_init();
+
+    inactivity_timer = xTimerCreate(
+        "InactivityTimer",          // Nome para debug
+        pdMS_TO_TICKS(5000),        // Período de 5000ms (5 segundos)
+        pdFALSE,                    // Não recarregar automaticamente (one-shot)
+        (void *)0,                  // ID do timer (não usado)
+        inactivity_timer_callback   // Função a ser chamada no timeout
+    );
+
+ 
     g_pc = peer_connection_create(&config);
     if (!g_pc) {
         ESP_LOGE(TAG, "peer_connection_create failed");
+        led_status_server_error(&status_led);
         return;
     }
 
@@ -157,30 +195,34 @@ void webrtc_init(const char *ssid, const char *password) {
     peer_connection_ondatachannel(g_pc, onmessage, onopen, NULL);
 
     // vTaskDelay(pdMS_TO_TICKS(5000));
-
+    led_status_ready(&status_led);    
     ESP_LOGI(TAG, "Peer manager initialized");
 }
 
 void webrtc_register_connection_task(void) {
     if (g_pc == NULL) {
         ESP_LOGE(TAG, "PeerConnection not initialized");
+        led_status_server_error(&status_led);
         return;
     }
 
     if (xTaskCreate(connection_task, "conn", 16 * 1024, NULL, 5, NULL) !=
         pdPASS) {
         ESP_LOGW(TAG, "Failed to create connection task");
+        led_status_server_error(&status_led);
     }
 }
 
 void webrtc_register_send_audio_task(void) {
     if (g_pc == NULL) {
         ESP_LOGE(TAG, "PeerConnection not initialized");
+        led_status_server_error(&status_led);
         return;
     }
 
     if (xTaskCreate(send_audio_task, "send_audio", 32 * 1024, NULL, 5, NULL) !=
         pdPASS) {
         ESP_LOGW(TAG, "Failed to create send_audio task");
+        led_status_server_error(&status_led);
     }
 }
